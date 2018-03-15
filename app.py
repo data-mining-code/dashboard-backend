@@ -95,14 +95,18 @@ class Request(object):
         return (self.sentiment_type, self.sentiment)
 
 
+def get_chatlog_stream(message):
+    if message['path'] == '/':
+        dataobject = message['data'] 
+        for sess in dataobject:
+            session_dic[sess] = User(dataobject[sess], sess)
+        print (session_dic)
+    else:
+        sessid = message['path'].split('/')[1]
+        new_log = dict(db.child("logs").child(sessid).get().val())
+        session_dic[sessid] = User(new_log,sessid)
 
-def get_chatlog(logs):
-    users = {}
-    for session in logs:
-        users[session] = (User(logs[session], session))
-    return users
-
-
+        
 def  get_usertypes():
   # classify each user into one of the three user types
   # and create a list out of them
@@ -115,6 +119,11 @@ def get_userneeds():
 
 def get_all_():
   pass
+
+## MAIN ##
+session_dic = {}
+dataobject = ""        
+my_stream = db.child("logs").stream(get_chatlog_stream)
 
 
 @app.route("/")
