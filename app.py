@@ -1,13 +1,14 @@
-from flask import Flask, request
 import json
 import numpy as np # linear algebr
-import os
 import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
+
+from flask import Flask, request
+from functools import reduce
+import os
 import pyrebase
 from random import randint
 import socket
 from textblob import TextBlob
-from textblob.sentiments import NaiveBayesAnalyzer
 
 app = Flask(__name__)
 
@@ -35,77 +36,72 @@ def start():
   # save_with_analyzed=True
 
 class User(object):
-  """ classifies the attributes of the user and gets the overall sentiment of the users requests """
-  def __init__(self, id, request, analyzed=False, sentiment="", type=""):
-    self.id = id
-    self.sentiment = sentiment
-    self.request = request
-    self.analyzed = analyzed
-    self.type = type
+    """ classifies the attributes of the user and gets the overall sentiment of the users requests """
+    def __init__(self, session, timestamp):
 
-  def get_sentiment(self):
-    
-    return self.sentiment
+        self.log_list = [Request(session['chat'][log]) for log in session['chat']]
+        print(self.log_list)
+        self.sessionid = timestamp
+        self.session = session
 
-  def get_type(self):
-    if self.sentiment > 0:
-      self.type = "positive"
-    elif self.sentiment < 0:
-      self.type = "negative"
-    else:
-      self.type = "neutral"
-    return self.type
-      
-  def __repr__(self):
-    return ('Id: ', self.id, 'Anzahl Requests: ', len(self.request))
-  # attr ID, Sentiment, all request, analyzed=true/false
-  # method sentiment, positive and complaints
+    def get_sentiment_overall(self):
+        request = [req.get_sentiment() for req in self.log_list]
+        sen_array = []
+        for sen in request:
+            sen_array.append(sen[1])
 
-
-user1 = User(11,0,['hallo', 'moin', 'test'])
+        if len(sen_array) > 1:
+            mean_sen = reduce((lambda x,y: x + y), sen_array) / len(sen_array)
+            return mean_sen
+        else:
+            return sen_array
+        pass
 
 
 class Request(object):
-  def __init__(self, log):
-    self.id = id
-    self.query = log['request']['query']
-    self.client = log['request']['query']['client']
-    self.location = log['request']['query']['location']
-    self.notmatched = log['request']['query']['notmatched']
-    self.productid = log['request']['query']['productid']
-    self.product_key_words = log['request']['query']['product_key_words']
-    self.question_key_words = log['request']['query']['question_key_words']
-    self.question_words = log['request']['query']['question_words']
-    self.verb = log['request']['query']['verb']
-    self.sentiment = log['request']['sentiment']
-    self.sentiment_type = log['request']['sentiment_type']
-    self.text = log['request']['text']
-    self.response = log['response']['text']
+
+    def __init__(self, log):
+        #print(log['request'])
+        self.id = id
+        self.query = log['request']['query']
+        self.client = log['request']['query']['client']
+        self.location = log['request']['query']['location']
+        self.notmatched = log['request']['query']['notmatched']
+        self.productid = log['request']['query']['productid']
+        self.product_key_words = log['request']['query']['product_key_words']
+        self.question_key_words = log['request']['query']['question_key_words']
+        self.question_words = log['request']['query']['question_words']
+        self.verb = log['request']['query']['verb']
+        self.sentiment = log['request']['sentiment']
+        self.sentiment_type = log['request']['type']
+        self.text = log['request']['text']
+        self.response = log['response']['text']
+
+    def get_sentiment(self):
+        string = self.text
+        polarity = TextBlob(string)
+        pol = polarity.sentiment
+
+        if pol[0] > 0:
+            self.sentiment = pol[0]
+            self.sentiment_type = 'pos'
+        elif pol[0] == 0:
+            self.sentiment = pol[0]
+            self.sentiment_type = 'neu'
+        else:
+            self.sentiment = pol[0]
+            self.sentiment_type = 'neg'
+
+        return (self.sentiment_type, self.sentiment)
 
 
 
-  def get_sentiment(self):
-    string = self.text
+def get_chatlog(logs):
+    users = {}
+    for session in logs:
+        users[session] = (User(logs[session], session))
+    return users
 
-    objectivity = TextBlob(string)
-    obj = objectivity.sentiment
-
-    if obj[1] == 0:
-        self.sentiment = ['neu', 0, 0]
-        return (self.sentiment)
-    else:
-        sentiment = TextBlob(string, analyzer=NaiveBayesAnalyzer())
-        sen = sentiment.sentiment
-        return ([sen[0], sen[1], sen[2]])
-  # attr id, sentiment, timestamp, intents, input string, 
-  # method sentiment
-
-
-
-def get_chatlog(db):
-  # iterate through database and process it to make it available for later actions
-  # listen to db and update if sth has changed
-  pass
 
 def  get_usertypes():
   # classify each user into one of the three user types
@@ -123,9 +119,8 @@ def get_all_():
 
 @app.route("/")
 def hello():
-	input = {}
+  input = {}
   return input
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=80)
-
