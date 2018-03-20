@@ -1,14 +1,13 @@
 import json
 import numpy as np # linear algebr
 import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
-
-from flask import Flask, request
-from functools import reduce
 import os
 import pyrebase
-from random import randint
 import socket
-from textblob import TextBlob
+from flask import Flask, request
+from random import randint
+from UserClass import User, Request
+
 
 app = Flask(__name__)
 
@@ -29,118 +28,70 @@ auth = firebase.auth()
 user = auth.sign_in_with_email_and_password('metrodatamining@code.berlin', 'test123')
 
 def start():
-  pass
-  # get_chatlog
-  # get_usertypes
-  # get_userneeds
-  # save_with_analyzed=True
-
-class User(object):
-    """ classifies the attributes of the user and gets the overall sentiment of the users requests """
-    def __init__(self, session, timestamp):
-
-        self.log_list = [Request(session['chat'][log]) for log in session['chat']]
-        self.sessionid = timestamp
-        self.session = session
-        self.usertype = session['user_type']
-
-    def get_sentiment_overall(self):
-        request = [req.get_sentiment() for req in self.log_list]
-        sen_array = []
-        for sen in request:
-            sen_array.append(sen[1])
-
-        if len(sen_array) > 1:
-            mean_sen = reduce((lambda x,y: x + y), sen_array) / len(sen_array)
-            return mean_sen
-        else:
-            return sen_array
-         pass
-
-    def get_usertype(self):
-        request = [req.get_sentiment() for req in self.log_list]
-        length = len(request)
-        length_neu = len(request[request == 0])
-        length_pos = len(request[request > 0])
-        length_neg = len(request[request < 0])
-        sum_pos_neg = (length_pos + length_neg)
-        min = request.min()
-        max = request.max()
-
-        usertype = ''
-
-        if length_neu > sum_pos_neg:
-            usertype = 'neu'
-        elif (length_pos > length_neg) or (length_pos == length_neg and max > (min*(-1))):
-            usertype = 'pos'
-        elif (length_pos < length_neg) or (length_pos == length_neg and max < (min*(-1))):
-            usertype = 'neg'
-
-        self.usertype = usertype
-
-        return self.usertype
+    pass
+    # get_chatlog
+    # get_usertypes
+    # get_userneeds
+    # save_with_analyzed=True
 
 
+## Get new Chatlogs, update the local dic and aggregate the new ones
+def get_chatlog_stream(message):
+    if message['path'] == '/':
+        dataobject = message['data'] 
+        for sess in dataobject:
+            session_dic[sess] = User(dataobject[sess], sess)
+            if session_dic[sess].usertype == "":
+                aggregateData(session_dic[sess])
+    else:
+        sessid = message['path'].split('/')[1]
+        new_log = dict(db.child("logs").child(sessid).get().val())
+        session_dic[sessid] = User(new_log,sessid)
+        aggregateData(session_dic[sessid])
 
-class Request(object):
+def aggregateData(UserObj):
+    UserObj.get_sentiment_overall()
+    UserObj.get_questions_asked()
+    UserObj.get_shops_asked()
+    UserObj.get_products_asked()
 
-    def __init__(self, log):
-        #print(log['request'])
-        self.id = id
-        self.query = log['request']['query']
-        self.client = log['request']['query']['client']
-        self.location = log['request']['query']['location']
-        self.notmatched = log['request']['query']['notmatched']
-        self.productid = log['request']['query']['productid']
-        self.product_key_words = log['request']['query']['product_key_words']
-        self.question_key_words = log['request']['query']['question_key_words']
-        self.question_words = log['request']['query']['question_words']
-        self.verb = log['request']['query']['verb']
-        self.sentiment = log['request']['sentiment']
-        self.sentiment_type = log['request']['type']
-        self.text = log['request']['text']
-        self.response = log['response']['text']
-
-    def get_sentiment(self):
-        string = self.text
-        polarity = TextBlob(string)
-        pol = polarity.sentiment
-
-        if pol[0] > 0:
-            self.sentiment = pol[0]
-            self.sentiment_type = 'pos'
-        elif pol[0] == 0:
-            self.sentiment = pol[0]
-            self.sentiment_type = 'neu'
-        else:
-            self.sentiment = pol[0]
-            self.sentiment_type = 'neg'
-
-        return (self.sentiment_type, self.sentiment)
-
-
-
-def get_chatlog(logs):
-    users = {}
-    for session in logs:
-        users[session] = (User(logs[session], session))
-    return users
-
-
+## These Methods are called when the Call from Frontend comes        
 def  get_usertypes():
-  # classify each user into one of the three user types
-  # and create a list out of them
-
-
-  pass
-
+    # classify each user into one of the three user types
+    # and create a list out of them
+    pass
+  
 def get_userneeds():
-  # classify each request's intent
-  # and also create a list out of them
-  pass
+    # classify each request's intent
+    # and also create a list out of them
+    pass
 
-def get_all_():
-  pass
+def top_questions_asked():
+    # Get the questions that were most often asked
+    pass
+
+def top_shops_asked():
+    # Get the shops that were most often asked
+    pass
+
+def top_products_asked():
+    # Get the products that were most often asked
+    product_resp = {}
+    # Get the products that were most often asked
+    all_products_asked_for = []
+    for sess in sessdic:
+        for prdct in sessdic[sess].products_asked:
+            all_products_asked_for.append(prdct)
+    counted = Counter(all_products_asked_for)
+    for counted_p in counted:
+        product_resp[counted_p] = {'times': counted[counted_p], 'percent': counted[counted_p] / len(all_products_asked_for)}
+    return product_resp
+
+
+## MAIN ##
+session_dic = {}
+dataobject = ""        
+my_stream = db.child("logs").stream(get_chatlog_stream)
 
 
 @app.route("/")
