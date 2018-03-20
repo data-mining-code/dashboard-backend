@@ -23,6 +23,29 @@ class User(object):
         else:
             return sen_array[0]
     
+    def get_usertype(self):
+        request = [req.get_sentiment() for req in self.log_list]
+        length = len(request)
+        length_neu = len(request[request == 0])
+        length_pos = len(request[request > 0])
+        length_neg = len(request[request < 0])
+        sum_pos_neg = (length_pos + length_neg)
+        min = request.min()
+        max = request.max()
+
+        usertype = ''
+
+        if length_neu > sum_pos_neg:
+            usertype = 'neu'
+        elif (length_pos > length_neg) or (length_pos == length_neg and max > (min*(-1))):
+            usertype = 'pos'
+        elif (length_pos < length_neg) or (length_pos == length_neg and max < (min*(-1))):
+            usertype = 'neg'
+
+        self.usertype = usertype
+
+        return self.usertype
+    
     def get_questions_asked(self):
         # Get every question asked but dont just one time
         self.questions_asked = []
