@@ -40,9 +40,9 @@ class User(object):
     def __init__(self, session, timestamp):
 
         self.log_list = [Request(session['chat'][log]) for log in session['chat']]
-        print(self.log_list)
         self.sessionid = timestamp
         self.session = session
+        self.usertype = session['user_type']
 
     def get_sentiment_overall(self):
         request = [req.get_sentiment() for req in self.log_list]
@@ -55,7 +55,31 @@ class User(object):
             return mean_sen
         else:
             return sen_array
-        pass
+         pass
+
+    def get_usertype(self):
+        request = [req.get_sentiment() for req in self.log_list]
+        length = len(request)
+        length_neu = len(request[request == 0])
+        length_pos = len(request[request > 0])
+        length_neg = len(request[request < 0])
+        sum_pos_neg = (length_pos + length_neg)
+        min = request.min()
+        max = request.max()
+
+        usertype = ''
+
+        if length_neu > sum_pos_neg:
+            usertype = 'neu'
+        elif (length_pos > length_neg) or (length_pos == length_neg and max > (min*(-1))):
+            usertype = 'pos'
+        elif (length_pos < length_neg) or (length_pos == length_neg and max < (min*(-1))):
+            usertype = 'neg'
+
+        self.usertype = usertype
+
+        return self.usertype
+
 
 
 class Request(object):
@@ -106,6 +130,8 @@ def get_chatlog(logs):
 def  get_usertypes():
   # classify each user into one of the three user types
   # and create a list out of them
+
+
   pass
 
 def get_userneeds():
