@@ -60,7 +60,7 @@ def  get_usertypes():
     # classify each user into one of the three user types
     # and create a list out of them
     pass
-
+  
 def get_userneeds():
     # classify each request's intent
     # and also create a list out of them
