@@ -22,10 +22,9 @@ class User(object):
             return mean_sen
         else:
             return sen_array[0]
-    
+
     def get_usertype(self):
         request = [req.get_sentiment() for req in self.log_list]
-        length = len(request)
         length_neu = len(request[request == 0])
         length_pos = len(request[request > 0])
         length_neg = len(request[request < 0])
@@ -45,27 +44,33 @@ class User(object):
         self.usertype = usertype
 
         return self.usertype
-    
+
+
     def get_questions_asked(self):
         # Get every question asked but dont just one time
         self.questions_asked = []
-        all_questions_asked = [req.query for req in self.log_list]
-        for query in all_questions_asked:
-            if query not in self.questions_asked:
-                self.questions_asked.append(query)
+        all_questions_asked = [req.compare_string for req in self.log_list]
+        for string in all_questions_asked:
+            if string not in self.questions_asked:
+                self.questions_asked.append(string)
 
     def get_shops_asked(self):
         # Get every shop that was asked about but just one time
-        all_shops_asked = [req.location for req in self.log_list]
-        self.shops_asked = set(all_shops_asked)
-        if '' in self.shops_asked: self.shops_asked.remove('')
+        self.shops_asked = [req.location for req in self.log_list]
+        if len(self.shops_asked) != 0:
+            self.shops_asked = set(self.shops_asked)
+            self.shops_asked = list(self.shops_asked)
+        if '' in self.shops_asked:
+            self.shops_asked.remove('')
 
     def get_products_asked(self):
         # Get every product that was asked about but just one time
-        all_products_asked = [req.product for req in self.log_list]
-        self.products_asked = set(all_products_asked)
-        print (self.products_asked)
-        if '' in self.products_asked: self.products_asked.remove('')
+        self.products_asked = [req.product for req in self.log_list]
+        if len(self.products_asked) != 0:
+            self.products_asked = list(set(self.products_asked))
+        if '' in self.products_asked:
+            self.products_asked.remove('')
+
 
 class Request(object):
 
@@ -84,6 +89,7 @@ class Request(object):
         self.sentiment_type = log['request']['type']
         self.text = log['request']['text']
         self.response = log['response']['text']
+        self.compare_string = log['request']['query']['compare_string']
 
     def get_sentiment(self):
         string = self.text
