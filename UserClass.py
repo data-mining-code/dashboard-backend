@@ -24,8 +24,9 @@ class User(object):
             return sen_array[0]
 
     def get_usertype(self):
-        request = [req.get_sentiment() for req in self.log_list]
-        length_neu = len(request[request == 0])
+        request = [req.get_sentiment()[1] for req in self.log_list]
+        request = np.array(request)
+        length_neu = len([request[request == 0]])
         length_pos = len(request[request > 0])
         length_neg = len(request[request < 0])
         sum_pos_neg = (length_pos + length_neg)
@@ -45,15 +46,15 @@ class User(object):
 
         return self.usertype
 
-
     def get_questions_asked(self):
         # Get every question asked but dont just one time
-        self.questions_asked = []
-        all_questions_asked = [req.compare_string for req in self.log_list]
-        for string in all_questions_asked:
-            if string not in self.questions_asked:
-                self.questions_asked.append(string)
-
+        self.questions_asked = {}
+        all_questions_asked = {}
+        for req in self.log_list:
+            if not req.compare_string in all_questions_asked:
+                all_questions_asked[req.compare_string] = req.text
+        self.questions_asked = all_questions_asked
+        
     def get_shops_asked(self):
         # Get every shop that was asked about but just one time
         self.shops_asked = [req.location for req in self.log_list]
@@ -70,7 +71,6 @@ class User(object):
             self.products_asked = list(set(self.products_asked))
         if '' in self.products_asked:
             self.products_asked.remove('')
-
 
 class Request(object):
 

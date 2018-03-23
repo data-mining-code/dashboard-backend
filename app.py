@@ -62,20 +62,23 @@ def get_products_shops_user_type(resp):
     all_products_asked_for = []
     all_shops_asked_for = []
     all_types = []
-    all_questions = []
+    all_questions_cmp_string = []
+    all_questions_dic = {}
     for sess in session_dic:
         for prdct in session_dic[sess].products_asked:
             all_products_asked_for.append(prdct)
         for shp in session_dic[sess].shops_asked:
             all_shops_asked_for.append(shp)
         for qst in session_dic[sess].questions_asked:
-            all_questions.append(qst)
+            all_questions_cmp_string.append(qst)
+            if not qst in all_questions_dic:
+                all_questions_dic[qst] = session_dic[sess].questions_asked[qst]
         all_types.append(session_dic[sess].usertype)
 
     products_count = Counter(all_products_asked_for)
     shops_count = Counter(all_shops_asked_for)
     type_count = Counter(all_types)
-    questions_count = Counter(all_questions)
+    questions_count = Counter(all_questions_cmp_string)
 
     resp['product'] = {}
     resp['shops'] = {}
@@ -88,20 +91,22 @@ def get_products_shops_user_type(resp):
     for user_type in type_count:
         resp['user_type'][user_type] = {'times': type_count[user_type], 'percent': type_count[user_type] / len(all_types)}
     for question in questions_count:
-        resp['question'][question] = {'times': questions_count[question], 'percent': questions_count[question] / len(all_questions)}
+        resp['question'][question] = {'string': all_questions_dic[question], 'times': questions_count[question], 'percent': questions_count[question] / len(all_questions_cmp_string)}
     return resp
 
 ## MAIN ##
 global session_dic
 session_dic = {}
-dataobject = ""
+#dataobject = ""
 my_stream = db.child("logs").stream(get_chatlog_stream)
 
 
 @app.route("/")
 def hello():
-    input = {}
-    return input
+    resp = {}
+    resp = get_products_shops_user_type(resp)
+    resp_json = json.dumps(resp)
+    return resp_json
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=80)
