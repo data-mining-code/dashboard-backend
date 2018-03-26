@@ -8,7 +8,7 @@ from flask import Flask, request
 from random import randint
 from UserClass import User, Request
 from collections import Counter
-
+from time import sleep
 
 app = Flask(__name__)
 
@@ -38,20 +38,26 @@ def start():
 
 ## Get new Chatlogs, update the local dic and aggregate the new ones
 def get_chatlog_stream(message):
+    print('Got Something', message)
+    sleep(2)
     if message['path'] == '/':
+        print('Everything')
         dataobject = message['data']
         for sess in dataobject:
             session_dic[sess] = User(dataobject[sess], sess)
             if session_dic[sess].usertype == "":
                 aggregateData(session_dic[sess])
+                db.child("logs").child(sess).set(session_dic[sess].firebase_save_format())
     else:
+        print('Something')
         sessid = message['path'].split('/')[1]
         new_log = dict(db.child("logs").child(sessid).get().val())
         session_dic[sessid] = User(new_log,sessid)
         aggregateData(session_dic[sessid])
+        db.child("logs").child(sessid).set(session_dic[sessid].firebase_save_format())
 
 def aggregateData(UserObj):
-    UserObj.get_sentiment_overall()
+    UserObj.get_usertype()
     UserObj.get_questions_asked()
     UserObj.get_shops_asked()
     UserObj.get_products_asked()
@@ -98,11 +104,17 @@ def get_products_shops_user_type(resp):
 global session_dic
 session_dic = {}
 #dataobject = ""
-my_stream = db.child("logs").stream(get_chatlog_stream)
+#my_stream = db.child("logs").stream(get_chatlog_stream)
 
 
 @app.route("/")
 def hello():
+    data = dict(db.child("logs").get().val())
+    for sess in data:
+        session_dic[sess] = User(data[sess], sess)
+        if session_dic[sess].usertype == "":
+            aggregateData(session_dic[sess])
+            db.child("logs").child(sess).set(session_dic[sess].firebase_save_format())
     resp = {}
     resp = get_products_shops_user_type(resp)
     resp_json = json.dumps(resp)

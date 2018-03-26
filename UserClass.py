@@ -1,10 +1,11 @@
 from functools import reduce
 from textblob import TextBlob
+import numpy as np
 
 class User(object):
     """ classifies the attributes of the user and gets the overall sentiment of the users requests """
     def __init__(self, session, timestamp):
-        self.log_list = [Request(session['chat'][log]) for log in session['chat']]
+        self.log_list = [Request(session['chat'][log], log) for log in session['chat']]
         self.sessionid = timestamp
         self.usertype = session['user_type']
         self.questions_asked = session['questions_asked']
@@ -58,23 +59,42 @@ class User(object):
     def get_shops_asked(self):
         # Get every shop that was asked about but just one time
         self.shops_asked = [req.location for req in self.log_list]
-        if len(self.shops_asked) != 0:
-            self.shops_asked = set(self.shops_asked)
-            self.shops_asked = list(self.shops_asked)
-        if '' in self.shops_asked:
-            self.shops_asked.remove('')
+        uniquelist = set(self.shops_asked)
+        if len(uniquelist) > 1:
+            self.shops_asked = list(uniquelist)
+            if '' in self.shops_asked:
+                self.shops_asked.remove('')
+        else:
+            if '' in self.shops_asked:
+                self.shops_asked = ""
 
     def get_products_asked(self):
         # Get every product that was asked about but just one time
         self.products_asked = [req.product for req in self.log_list]
-        if len(self.products_asked) != 0:
-            self.products_asked = list(set(self.products_asked))
-        if '' in self.products_asked:
-            self.products_asked.remove('')
+        uniquelist = set(self.products_asked)
+        if len(uniquelist) > 1:
+            self.products_asked = list(uniquelist)
+            if '' in self.products_asked:
+                self.products_asked.remove('')
+        else:
+            if '' in self.products_asked:
+                self.products_asked = ""
+
+    def firebase_save_format(self):
+        obj = {}
+        obj["products_asked"] = self.products_asked
+        obj["shops_asked"] = self.shops_asked
+        obj["user_type"] = self.usertype
+        obj["questions_asked"] = self.questions_asked
+        obj["chat"] = {}
+        for req in self.log_list:
+            obj["chat"][req.id] = req.save_format()
+        return obj
+
 
 class Request(object):
 
-    def __init__(self, log):
+    def __init__(self, log, id):
         self.id = id
         self.query = log['request']['query']
         self.client = log['request']['query']['client']
@@ -107,3 +127,14 @@ class Request(object):
             self.sentiment_type = 'neg'
 
         return (self.sentiment_type, self.sentiment)
+
+    def save_format(self):
+        obj = {}
+        obj["request"] = {}
+        obj["request"]["query"] = self.query
+        obj["request"]["sentiment"] = self.sentiment
+        obj["request"]["type"] = self.sentiment_type
+        obj["request"]["text"] = self.text
+        obj["response"] = {}
+        obj["response"]["text"] = self.response
+        return obj
