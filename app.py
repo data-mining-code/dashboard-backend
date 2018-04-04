@@ -63,7 +63,7 @@ def aggregateData(UserObj):
     UserObj.get_products_asked()
 
 ## These methods are called when the call form the frontend comes
-def get_products_shops_user_type(resp):
+def get_products_shops_user_type(resp,stats):
     # Get the products that were most often asked
     all_products_asked_for = []
     all_shops_asked_for = []
@@ -81,23 +81,27 @@ def get_products_shops_user_type(resp):
                 all_questions_dic[qst] = session_dic[sess].questions_asked[qst]
         all_types.append(session_dic[sess].usertype)
 
-    products_count = Counter(all_products_asked_for)
-    shops_count = Counter(all_shops_asked_for)
+    products_count = Counter(all_products_asked_for).most_common(5)
+    shops_count = Counter(all_shops_asked_for).most_common(5)
     type_count = Counter(all_types)
-    questions_count = Counter(all_questions_cmp_string)
+    questions_count = Counter(all_questions_cmp_string).most_common(3)
 
     resp['product'] = {}
     resp['shops'] = {}
     resp['user_type'] = {}
     resp['question'] = {}
+    resp['stats'] = {}
+    
     for product in products_count:
-        resp['product'][product] = {'times': products_count[product], 'percent': products_count[product] / len(all_products_asked_for)}
+        resp['product'][product[0]] = {'times': product[1], 'percent': product[1] / len(all_products_asked_for)}
     for shops in shops_count:
-        resp['shops'][shops] = {'times': shops_count[shops], 'percent': shops_count[shops] / len(all_shops_asked_for)}
+        resp['shops'][shops[0].title()] = {'times': shops[1], 'percent': shops[1] / len(all_shops_asked_for)}
     for user_type in type_count:
         resp['user_type'][user_type] = {'times': type_count[user_type], 'percent': type_count[user_type] / len(all_types)}
     for question in questions_count:
-        resp['question'][question] = {'string': all_questions_dic[question], 'times': questions_count[question], 'percent': questions_count[question] / len(all_questions_cmp_string)}
+        resp['question'][question[0]] = {'string': all_questions_dic[question[0]], 'times': question[1], 'percent': question[1] / len(all_questions_cmp_string)}
+    for stat in stats:
+        resp['stats'][stat] = stats[stat]
     return resp
 
 ## MAIN ##
@@ -109,6 +113,7 @@ session_dic = {}
 
 @app.route("/")
 def hello():
+    stats = dict(db.child("stats").get().val())
     data = dict(db.child("logs").get().val())
     for sess in data:
         session_dic[sess] = User(data[sess], sess)
@@ -116,7 +121,7 @@ def hello():
             aggregateData(session_dic[sess])
             db.child("logs").child(sess).set(session_dic[sess].firebase_save_format())
     resp = {}
-    resp = get_products_shops_user_type(resp)
+    resp = get_products_shops_user_type(resp,stats)
     resp_json = json.dumps(resp)
     return resp_json
 
